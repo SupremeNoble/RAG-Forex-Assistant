@@ -1,0 +1,7 @@
+langchain
+chromadb
+sentence-transformers
+gradio
+numpy
+pandas
+tiktoken
