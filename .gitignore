@@ -1,0 +1,16 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Vector DB & data files
+vector_store/
+docs/
+*.pkl
+*.bin
+*.json
+
+# OS files
+.DS_Store
