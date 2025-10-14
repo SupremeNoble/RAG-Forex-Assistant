@@ -1,7 +1,12 @@
-langchain
+beautifulsoup4
 chromadb
-sentence-transformers
+ebooklib
 gradio
+langchain
+langchain-community
+langchain-huggingface
 numpy
 pandas
+pypdf
+sentence-transformers
 tiktoken
