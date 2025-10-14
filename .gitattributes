@@ -1,2 +1,0 @@
-docs/*.epub filter=lfs diff=lfs merge=lfs -text
-docs/dokumen.pub_the-encyclopedia-of-technical-market-indicators-2nd-ed.epub filter=lfs diff=lfs merge=lfs -text
