@@ -6,7 +6,7 @@ __pycache__/
 *.pyc
 
 # Vector DB & data files
-docs/
+
 vector_store/
 *.bin
 *.pkl
@@ -17,3 +17,5 @@ vector_store/
 
 # Qwen Model
 model/
+
+.gradio/
