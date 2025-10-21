@@ -1,3 +1,5 @@
+accelerate
+bitsandbytes
 beautifulsoup4
 chromadb
 ebooklib
@@ -10,3 +12,4 @@ pandas
 pypdf
 sentence-transformers
 tiktoken
+transformers

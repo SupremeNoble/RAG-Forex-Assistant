@@ -6,8 +6,14 @@ __pycache__/
 *.pyc
 
 # Vector DB & data files
+docs/
+vector_store/
+*.bin
 *.pkl
 *.json
 
 # OS files
 .DS_Store
+
+# Qwen Model
+model/

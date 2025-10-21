@@ -1,49 +1,100 @@
-"""
-gradio_app.py — Gradio interface for AI Research Assistant for Forex Insights
------------------------------------------------------------------------------
+"""Gradio UI entrypoint for the RAG Forex Assistant.
 
-Features:
-- Automatically ingests PDFs/EPUBs from docs/ if vector store doesn't exist
-- Initializes ChromaDB retriever and LLM (HuggingFacePipeline)
-- Gradio UI for questions + answers + source documents
+This module will ingest documents into the vector store if needed,
+instantiate the QA chain (via `create_qa_chain`) and expose a simple
+question -> (answer, sources) UI. The UI layout is unchanged; comments
+and formatting were cleaned for readability and best practice.
 """
 
+import logging
 import os
-import gradio as gr
-from ingest import ingest_docs
-from llm import qa_chain  # make sure retriever.py uses the same vector_store/
+import re
+from typing import Tuple
 
-# ------------------------------
-# 1. Ingest docs if needed
-# ------------------------------
+import gradio as gr
+
+from ingest import ingest_docs
+from llm import create_qa_chain
+
+
+logger = logging.getLogger(__name__)
+
+
 VECTOR_STORE_DIR = "vector_store/"
 
-if not os.path.exists(VECTOR_STORE_DIR) or len(os.listdir(VECTOR_STORE_DIR)) == 0:
-    print("📂 Vector store not found, ingesting documents...")
-    ingest_docs(docs_path="docs/", persist_directory=VECTOR_STORE_DIR)
-else:
-    print("✅ Vector store exists. Skipping ingestion.")
 
-# ------------------------------
-# 2. Gradio QA function
-# ------------------------------
-def answer_question(question: str):
-    """
-    Passes the user question to the RAG QA chain and returns answer + sources
-    """
-    if not question.strip():
+def ensure_vector_store(docs_path: str = "docs/", persist_directory: str = VECTOR_STORE_DIR) -> None:
+    """Ensure the Chroma vector store exists by ingesting documents when necessary."""
+    if not os.path.exists(persist_directory) or len(os.listdir(persist_directory)) == 0:
+        logger.info("Vector store not found; ingesting documents...")
+        ingest_docs(docs_path=docs_path, persist_directory=persist_directory)
+    else:
+        logger.info("Vector store exists; skipping ingestion.")
+
+
+# Ensure vector store exists before creating the QA chain
+ensure_vector_store()
+
+# Create the QA chain once (may be slow) — uses create_qa_chain from llm.py
+try:
+    qa_chain = create_qa_chain()
+except Exception:
+    logger.exception("Failed to create QA chain. Make sure model files are available.")
+    raise
+
+
+def answer_question(question: str) -> Tuple[str, str]:
+    """Pass the user question to the QA chain and return (answer, sources_text)."""
+    if not question or not question.strip():
         return "❌ Please enter a valid question.", ""
-    
+
+    prompt = f"""
+    Answer the following question concisely in a single paragraph based only on the retrieved documents.
+    If the answer is not known, say "I don't know."
+
+    Question: {question}
+    """
+
     result = qa_chain({"query": question})
-    answer = result.get("result", "No answer found.")
-    sources = [doc.metadata.get("source", "unknown") for doc in result.get("source_documents", [])]
+
+    # Safely normalize and extract the model's 'helpful answer' portion.
+    raw = result.get("result", "No answer found.")
+    answer_text = str(raw).strip()
+
+    # If the chain injects a label like 'Helpful Answer:', use text after it.
+    parts = re.split(r"(?i)helpful answer:", answer_text, maxsplit=1)
+    if len(parts) > 1:
+        answer_text = parts[1].strip()
+
+    # Remove trailing sections that look like a new label (Question:, Sources:, etc.).
+    answer_text = re.split(r"(?i)\b(question:|helpful answer:|sources?:)\b", answer_text, maxsplit=1)[0].strip()
+
+    # Prefer the first paragraph; if none, fall back to a short sentence-limited excerpt.
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", answer_text) if p.strip()]
+    if paragraphs:
+        answer = paragraphs[0]
+    else:
+        sentences = re.split(r"(?<=[.!?])\s+", answer_text)
+        max_sentences = 3
+        if len(sentences) > max_sentences:
+            answer = " ".join(sentences[:max_sentences]).strip() + "..."
+        else:
+            answer = answer_text
+    # Collect sources while preserving order and deduplicating
+    seen = set()
+    sources = []
+    for doc in result.get("source_documents", []):
+        src = getattr(doc, "metadata", {}).get("source", "unknown")
+        src = src.strip() if isinstance(src, str) else str(src)
+        if src not in seen:
+            seen.add(src)
+            sources.append(src)
+
     sources_text = "\n".join(sources) if sources else "No sources available."
-    
     return answer, sources_text
 
-# ------------------------------
-# 3. Build Gradio Interface
-# ------------------------------
+
+# Build the Gradio UI
 with gr.Blocks() as demo:
     gr.Markdown("# 💹 AI Research Assistant for Forex Insights")
     gr.Markdown("Ask questions about Forex using uploaded PDFs, EPUBs, and market reports.")
@@ -52,18 +103,13 @@ with gr.Blocks() as demo:
         question_input = gr.Textbox(
             label="Enter your question",
             placeholder="e.g., What is the RSI indicator?",
-            lines=1
+            lines=1,
         )
         answer_output = gr.Textbox(label="Answer", lines=5)
         sources_output = gr.Textbox(label="Sources", lines=5)
 
-    question_input.submit(
-        answer_question,
-        inputs=question_input,
-        outputs=[answer_output, sources_output]
-    )
+    question_input.submit(answer_question, inputs=question_input, outputs=[answer_output, sources_output])
 
-# ------------------------------
-# 4. Launch App
-# ------------------------------
-demo.launch()
+
+# Launch the app
+demo.launch(server_name="0.0.0.0", server_port=7860)
