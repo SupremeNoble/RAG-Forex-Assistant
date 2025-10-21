@@ -1,6 +1,7 @@
 # 💹 RAG Forex Assistant
 
 A Retrieval-Augmented Generation (RAG) AI assistant for Forex insights.  
+
 This project allows you to ask questions about Forex trading using uploaded PDFs, EPUBs, and market reports. The assistant retrieves relevant information from documents, embeds them with HuggingFace embeddings, and answers questions using a locally hosted LLM.
 
 ---
