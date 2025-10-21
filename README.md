@@ -144,7 +144,7 @@ rag-forex-assistant/
 
 ## License
 
-This project is released under the MIT License.
+This project is released under the [MIT License](LICENSE).
 
 ---
 
